@@ -26,7 +26,7 @@ module Lethe
     def conditions(location, policy, id)
       conditions = {location.column => id}
       conditions[location.type_column] = @subject.polymorphic_name if location.type_column
-      conditions.merge((policy&.where || {}).transform_keys(&:to_s))
+      conditions.merge(Enums.cast(location.model, policy&.where || {}).transform_keys(&:to_s))
     end
 
     def rows(location)

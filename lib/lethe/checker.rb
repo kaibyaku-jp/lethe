@@ -146,6 +146,12 @@ module Lethe
       end
 
       if table
+        enum_model = model_for_table(table)
+        {"where" => policy.where, "set" => (policy.action == :scrub) ? policy.set : nil}.each do |option, hash|
+          Enums.unknown(enum_model, hash).each do |column, value|
+            problems << invalid(policy, "unknown_enum_value", option: option, table: table, column: column, value: value.inspect)
+          end
+        end
         problems << polymorphic_type_problem(policy, key, table)
         if policy.cascade && !model_for_table(table)
           problems << invalid(policy, "cascade_needs_model", table: table)
@@ -248,6 +254,8 @@ module Lethe
           ["subject_scrub_not_hash", {}]
         elsif (unknown = policy.scrub.keys.map(&:to_s) - columns).any?
           ["unknown_column", {option: "scrub", table: @subject.table_name, column: unknown.first}]
+        elsif (column, value = Enums.unknown(@subject, policy.scrub).first)
+          ["unknown_enum_value", {option: "scrub", table: @subject.table_name, column: column, value: value.inspect}]
         end
 
       Result.new(

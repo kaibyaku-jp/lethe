@@ -25,8 +25,7 @@ RSpec.describe Lethe::Generators::InstallGenerator do
     schema { create_table(:users) }
     load migration
     ActiveRecord::Migration.suppress_messages { CreateLetheErasures.new.migrate(:up) }
-    connection.schema_cache.clear!
-    Lethe::Rows.reset!
+    forget_schema
     Lethe::Ledger.record("User", 1, "erase", {"posts.user_id" => {"destroy" => 2}})
     expect(Lethe::Ledger.erased("User").keys).to eq(["1"])
   ensure

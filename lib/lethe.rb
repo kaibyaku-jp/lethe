@@ -16,6 +16,7 @@ require_relative "lethe/formatters"
 require_relative "lethe/exporter"
 require_relative "lethe/runner"
 require_relative "lethe/rows"
+require_relative "lethe/enums"
 require_relative "lethe/locator"
 require_relative "lethe/plan"
 require_relative "lethe/ledger"
@@ -135,7 +136,7 @@ module Lethe
       subject = record_or_class.is_a?(Class) ? record_or_class : record_or_class.class
       id ||= record_or_class.id
       definition, report = checked(subject, models)
-      Leftovers.new(subject.base_class, id, definition, report.results, models: models || application_models).call
+      Leftovers.new(subject, id, definition, report.results, models: models || application_models).call
     end
 
     # Deletes kept rows whose `for:` has passed since their subject was erased.

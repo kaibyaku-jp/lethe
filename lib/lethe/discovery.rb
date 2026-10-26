@@ -85,8 +85,10 @@ module Lethe
 
     # Columns named like user_id or *_user_id, and the ones configured.
     def column_names
-      singular = @subject.model_name.singular
-      extra = @configuration.guess_columns_for(@subject.name)
+      # An STI subclass is stored in its base class's table, and other tables
+      # point at it as user_id, not admin_id.
+      singular = @subject.base_class.model_name.singular
+      extra = (@configuration.guess_columns_for(@subject.name) + @configuration.guess_columns_for(@subject.base_class.name)).uniq
       tables.flat_map do |table|
         @connection.columns(table).filter_map do |column|
           name = column.name

@@ -39,8 +39,10 @@ module Lethe
 
     private
 
+    # The definition's subject, so that an STI subclass with a definition of
+    # its own is swept by its own retention.
     def subject_type
-      @record.class.base_class.name
+      @definition.subject_name
     end
 
     def perform(step, blobs)
@@ -63,11 +65,13 @@ module Lethe
 
     def scrub(step)
       set = step.policy.set
-      return rows(step).where(step.conditions).update_all(set) unless step.policy.computed_set?
+      unless step.policy.computed_set?
+        return rows(step).where(step.conditions).update_all(Enums.cast(step.location.model, set))
+      end
 
       count = 0
       rows(step).where(step.conditions).find_each do |row|
-        row.update_columns(evaluate(set, row))
+        row.update_columns(Enums.cast(step.location.model, evaluate(set, row)))
         count += 1
       end
       count
@@ -80,7 +84,7 @@ module Lethe
 
       # The first erasure's time stays, so that retention counts from it.
       relation.where(policy.soft_delete => nil).update_all(policy.soft_delete => Time.current)
-      relation.update_all(evaluate(policy.scrub, @record)) unless policy.scrub.empty?
+      relation.update_all(Enums.cast(@record.class, evaluate(policy.scrub, @record))) unless policy.scrub.empty?
       relation.count
     end
 

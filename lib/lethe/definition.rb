@@ -30,16 +30,18 @@ module Lethe
       end
 
       # Keep the rows but overwrite columns: scrub :posts, set: { body: "" }
-      def scrub(*targets, set:, reason: nil, where: nil)
-        add(:scrub, targets, location: caller_location, reason: reason, where: where, set: set)
+      # With for:, lethe:sweep deletes the rows once that time has passed:
+      # scrub :orders, set: { phone: nil }, for: 7.years. cascade: true makes
+      # that deletion go through Active Record, as with destroy.
+      def scrub(*targets, set:, reason: nil, where: nil, cascade: false, **options)
+        add(:scrub, targets, location: caller_location, reason: reason, where: where, set: set,
+          retention: retention(options), cascade: cascade)
       end
 
       # Leave the rows as they are, for a reason: keep :orders, for: 7.years, reason: "..."
-      def keep(*targets, reason: nil, where: nil, **options)
-        unknown = options.keys - [:for]
-        raise ArgumentError, "lethe: unknown keyword#{"s" if unknown.size > 1}: #{unknown.join(", ")}" if unknown.any?
-
-        add(:keep, targets, location: caller_location, reason: reason, where: where, retention: options[:for])
+      def keep(*targets, reason: nil, where: nil, cascade: false, **options)
+        add(:keep, targets, location: caller_location, reason: reason, where: where,
+          retention: retention(options), cascade: cascade)
       end
 
       # The column does not point at the subject after all (a wrong guess).
@@ -80,6 +82,14 @@ module Lethe
       end
 
       private
+
+      # for: is a Ruby keyword, so it arrives in the options hash.
+      def retention(options)
+        unknown = options.keys - [:for]
+        raise ArgumentError, "lethe: unknown keyword#{"s" if unknown.size > 1}: #{unknown.join(", ")}" if unknown.any?
+
+        options[:for]
+      end
 
       def add(action, targets, location:, reason: nil, where: nil, set: nil, retention: nil, cascade: false)
         raise ArgumentError, "lethe: #{action} needs at least one target" if targets.empty?

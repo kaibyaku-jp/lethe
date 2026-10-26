@@ -38,6 +38,8 @@ ja:
       where_not_hash: "where: は列と値の Hash にしてください"
       unknown_column: "%{option}: %{table} に %{column} という列はありません"
       unknown_enum_value: "%{option}: %{value} は %{table} の %{column} の enum にない値です"
+      retention_not_allowed: "for: は keep と scrub に書くものです（%{action} には書けません）"
+      cascade_without_retention: "%{action} の cascade: は lethe:sweep で消すときだけ効きます。for: を足すか、cascade を外してください"
       retention_not_duration: "for: は 2.years のような期間にしてください"
       contradiction: "%{key} には %{other} で別の方針があります。どちらかを where: で絞ってください"
       polymorphic_type_required: "%{key} はポリモーフィックです。他の型の行を消さないよう where: { %{type_column}: \"%{subject_type}\" } を足してください"

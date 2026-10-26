@@ -1,9 +1,9 @@
 # frozen_string_literal: true
 
 module Lethe
-  # Deletes kept rows whose time is up: `keep ..., for: 2.years` keeps a
-  # subject's rows for two years after it was first erased, as recorded in
-  # lethe_erasures, and this deletes them afterwards.
+  # Deletes kept rows whose time is up: `keep ..., for: 2.years` (or
+  # `scrub ..., for:`) keeps a subject's rows for two years after it was
+  # first erased, as recorded in lethe_erasures, and this deletes them afterwards.
   class Sweeper
     def initialize(definitions, models:, now: Time.current)
       @definitions = definitions
@@ -14,7 +14,7 @@ module Lethe
     # Returns { "User" => { "inquiries.user_id" => 3 } } for what it deleted.
     def call
       @definitions.each_with_object({}) do |definition, swept|
-        policies = definition.policies.select { |policy| policy.action == :keep && policy.retention }
+        policies = definition.policies.select { |policy| %i[keep scrub].include?(policy.action) && policy.retention }
         next if policies.empty?
 
         subject = definition.subject_name.constantize
@@ -36,9 +36,13 @@ module Lethe
       ids.each_slice(500).sum do |slice|
         present = rows.where(locator.conditions(location, policy, slice)).distinct.pluck(location.column)
         present.sum do |id|
-          count = rows.where(locator.conditions(location, policy, id)).delete_all
-          Ledger.record(subject.name, id, "sweep", {policy.target.to_s => {"sweep" => count}})
-          count
+          ActiveRecord::Base.transaction do
+            relation = policy.cascade ? location.model.unscoped : rows
+            relation = relation.where(locator.conditions(location, policy, id))
+            count = policy.cascade ? relation.destroy_all.size : relation.delete_all
+            Ledger.record(subject.name, id, "sweep", {policy.target.to_s => {"sweep" => count}})
+            count
+          end
         end
       end
     end

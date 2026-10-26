@@ -38,6 +38,16 @@ RSpec.describe Lethe::Definition do
     expect(policy.target).to have_attributes(kind: :column, table: "inquiries", column: "user_id")
   end
 
+  it "records scrub with how long the scrubbed rows stay" do
+    definition = define { scrub :orders, set: {phone: nil}, for: 7.years, reason: "Bookkeeping" }
+
+    expect(definition.policies.sole).to have_attributes(action: :scrub, retention: 7.years, set: {phone: nil})
+  end
+
+  it "rejects unknown keywords to scrub" do
+    expect { define { scrub :orders, set: {phone: nil}, fro: 7.years } }.to raise_error(ArgumentError, /unknown keyword: fro/)
+  end
+
   it "rejects unknown keywords to keep" do
     expect { define { keep :inquiries, reason: "x", fro: 2.years } }.to raise_error(ArgumentError, /unknown keyword: fro/)
   end

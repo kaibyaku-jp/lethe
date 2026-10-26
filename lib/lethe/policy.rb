@@ -5,12 +5,13 @@ module Lethe
   #
   #   action    :destroy, :scrub, :keep, :ignore or :destroy_attachment
   #   reason    why, in words for people (required for keep and ignore)
-  #   retention how long a kept row stays (an ActiveSupport::Duration), or nil
+  #   retention how long a kept or scrubbed row stays (an ActiveSupport::Duration), or nil
   #   where     a hash of column conditions the policy is limited to, or nil
   #   set       for scrub: the columns to overwrite and their new values;
   #             a Proc is called for each row (with the row, if it takes one)
-  #   cascade   for destroy: delete through Active Record, so that dependent:
-  #             associations, callbacks and attachments go too
+  #   cascade   delete through Active Record, so that dependent: associations,
+  #             callbacks and attachments go too: when erasing, for destroy;
+  #             when sweeping, for keep and scrub with a retention
   #   location  "path:line" of the declaration
   Policy = Data.define(:action, :target, :reason, :retention, :where, :set, :cascade, :location) do
     def ignore?

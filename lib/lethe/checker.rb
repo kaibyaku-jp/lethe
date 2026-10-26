@@ -141,6 +141,12 @@ module Lethe
         end
       end
 
+      if policy.retention && !%i[keep scrub].include?(policy.action)
+        problems << invalid(policy, "retention_not_allowed", action: policy.action)
+      end
+      if policy.cascade && %i[keep scrub].include?(policy.action) && policy.retention.nil?
+        problems << invalid(policy, "cascade_without_retention", action: policy.action)
+      end
       unless policy.retention.nil? || policy.retention.is_a?(ActiveSupport::Duration)
         problems << invalid(policy, "retention_not_duration")
       end

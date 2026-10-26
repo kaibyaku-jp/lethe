@@ -319,6 +319,43 @@ RSpec.describe "Lethe.erase!" do
       expect(Lethe.sweep!(models: models, now: Time.utc(2029, 1, 1))).to eq({})
     end
 
+    it "sweeps scrubbed rows once their time is up" do
+      ledger_table
+      Lethe.define("User") do
+        subject soft_delete: :deleted_at
+        destroy :comments, :ratings
+        destroy "follows.follower_id", "follows.following_id"
+        scrub :posts, set: {body: ""}, for: 7.years, cascade: true, reason: "Bookkeeping"
+        keep :inquiries, reason: "Support history"
+      end
+      travel_to(Time.utc(2026, 1, 1)) { Lethe.erase!(alice, models: models) }
+      expect(Post.where(user_id: alice.id).pluck(:body)).to eq(["", ""])
+      expect(Lethe.leftovers(alice, models: models)).to eq([])
+
+      expect(Lethe.sweep!(models: models, now: Time.utc(2032, 12, 31))).to eq({})
+      expect(Lethe.sweep!(models: models, now: Time.utc(2033, 1, 2))).to eq("User" => {":posts" => 2})
+      expect(Post.where(user_id: alice.id)).to be_empty
+      expect(Post.where(user_id: bob.id).count).to eq(2)
+      # Bob's comments on Alice's posts went with them, through dependent: :destroy.
+      expect(Comment.where(user_id: bob.id).count).to eq(1)
+    end
+
+    it "stops, deleting nothing for that subject, when a foreign key still points at a swept row" do
+      ledger_table
+      Lethe.define("User") do
+        subject soft_delete: :deleted_at
+        destroy :comments, :ratings
+        destroy "follows.follower_id", "follows.following_id"
+        scrub :posts, set: {body: ""}, for: 7.years, reason: "Bookkeeping"
+        keep :inquiries, reason: "Support history"
+      end
+      travel_to(Time.utc(2026, 1, 1)) { Lethe.erase!(alice, models: models) }
+
+      expect { Lethe.sweep!(models: models, now: Time.utc(2033, 1, 2)) }.to raise_error(ActiveRecord::InvalidForeignKey)
+      expect(Post.where(user_id: alice.id).count).to eq(2)
+      expect(Lethe::Rows.for("lethe_erasures").where(kind: "sweep")).to be_empty
+    end
+
     it "needs the ledger table to sweep" do
       expect { Lethe.sweep!(models: models) }.to raise_error(Lethe::Error, /lethe_erasures/)
     end

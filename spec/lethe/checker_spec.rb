@@ -161,6 +161,25 @@ RSpec.describe Lethe::Checker do
       end
     end
 
+    it "reports for: on a policy that cannot keep rows" do
+      Lethe.define("User") { subject destroy: true }
+      Lethe.definitions["User"].policies << Lethe::Policy.new(
+        action: :destroy, target: Lethe::Target.parse(:ratings), reason: nil, retention: 1.year,
+        where: nil, set: nil, cascade: false, location: "config/lethe.rb:1"
+      )
+
+      expect(message(check(models), ":ratings").first).to eq("retention_not_allowed")
+    end
+
+    it "reports cascade on kept rows that are never swept" do
+      Lethe.define("User") do
+        subject soft_delete: :deleted_at
+        keep :ratings, reason: "statistics", cascade: true
+      end
+
+      expect(message(check(models), ":ratings").first).to eq("cascade_without_retention")
+    end
+
     it "reports an association whose class cannot be loaded" do
       User.has_many :ghosts
       Lethe.define("User") do

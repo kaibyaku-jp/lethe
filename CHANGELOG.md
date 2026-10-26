@@ -26,8 +26,9 @@ The first release.
   `set:`, and `before_erase` / `after_erase` hooks.
 - `Lethe.plan` to see the steps without changing anything, and
   `Lethe.leftovers` to prove in tests that nothing else was left behind.
-- `bin/rails lethe:sweep` to delete kept rows once `keep ..., for:` has
-  passed, and `bin/rails generate lethe:install` for the table it needs.
+- `bin/rails lethe:sweep` to delete kept rows once `keep ..., for:` or
+  `scrub ..., for:` has passed, through the model with `cascade: true`, and
+  `bin/rails generate lethe:install` for the table it needs.
 - The check also fails on a polymorphic "table.column" without its type,
   `cascade: true` without a model, and rows kept with a foreign key to a
   subject row that is deleted.

@@ -62,6 +62,23 @@ RSpec.describe Lethe::Exporter do
     expect(user["data"].find { |row| row["key"] == "posts.user_id" }).to include("set" => ["body"])
   end
 
+  it "shows how long scrubbed rows stay" do
+    models
+    Lethe.define("User") do
+      subject destroy: true
+      scrub :posts, set: {body: ""}, for: 7.years, reason: "Bookkeeping"
+      destroy "follows.follower_id", "follows.following_id", :muted_users, :inquiries
+      ignore "muted_users.muted_user_id", reason: "not a user"
+      destroy_attachments :avatar
+    end
+    markdown = described_class.new(
+      check(models), definitions: Lethe.definitions.values, models: models, root: root,
+      definition_path: File.join(root, "config/lethe.rb")
+    ).markdown
+
+    expect(markdown).to include("| Post | Kept, with body overwritten | 7 years | Bookkeeping |")
+  end
+
   it "shows conditions, and leaves ignored references out" do
     models
     Lethe.define("User") do

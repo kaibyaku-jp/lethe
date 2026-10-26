@@ -101,7 +101,7 @@ Lethe.define User do
   scrub   :posts, set: {body: ""}, reason: "Quoted posts keep their row"
   scrub   :questions, where: {status: "answered"}, set: {body: ""}
   destroy :questions, where: {status: %w[pending declined]}
-  keep    :orders, for: 7.years, reason: "Bookkeeping"
+  scrub   :orders, set: {phone: nil, address: nil}, for: 7.years, reason: "Bookkeeping"
 
   # Anything without an association, as "table.column".
   destroy "follows.follower_id", "follows.following_id"
@@ -117,7 +117,7 @@ end
 | policy | means |
 | --- | --- |
 | `destroy` | The rows are deleted. |
-| `scrub` | The rows stay, with the columns in `set:` overwritten. |
+| `scrub` | The rows stay, with the columns in `set:` overwritten; `for:` says how long. |
 | `keep` | The rows stay as they are. Needs a `reason:`; `for:` says how long. |
 | `ignore` | The column does not point at the subject. Needs a `reason:`. |
 | `destroy_attachments` | The subject's Active Storage attachments are deleted. |
@@ -190,7 +190,7 @@ lethe: wrote docs/lethe.json
 | --- | --- | --- | --- |
 | The User itself | Kept as deleted (deleted_at), with nickname, email overwritten |  |  |
 | Avatar (attachment) | Deleted |  |  |
-| Order | Kept | 7 years | Bookkeeping |
+| Order | Kept, with phone, address overwritten | 7 years | Bookkeeping |
 ```
 
 Names come from your app's translations, such as `activerecord.models.order`.
@@ -226,7 +226,7 @@ transaction and their files purged after it commits.
 | --- | --- |
 | `destroy` | `delete_all` on the table, with no callbacks; `cascade: true` uses the model's `destroy_all`, so `dependent:` associations and attachments go too |
 | `scrub` | `update_all`; a Proc in `set:` is called for each row, given the row if it takes an argument |
-| `keep` | Nothing now; `lethe:sweep` deletes the rows once `for:` has passed |
+| `keep` | Nothing now; `lethe:sweep` deletes the rows once `for:` has passed (as does `scrub ..., for:`) |
 | polymorphic | The type always becomes part of the condition, so erasing User 5 never touches Post 5's rows |
 
 ```ruby
@@ -277,8 +277,11 @@ Run this daily, from cron or a recurring job:
 lethe: swept 3 from User :inquiries
 ```
 
-It deletes the rows of each `keep ..., for:` whose time has passed since
-their subject was first erased.
+It deletes the rows of each `keep ..., for:` and `scrub ..., for:` whose
+time has passed since their subject was first erased, one subject at a time
+in a transaction. If other rows still point at them through a foreign key,
+it stops there; add `cascade: true` to delete through the model and its
+`dependent:` associations instead.
 
 
 ## Configuring lethe

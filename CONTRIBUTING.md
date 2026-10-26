@@ -42,16 +42,19 @@ older Rails in the same way.
 | `lib/lethe/discovery.rb` | finding what points at a subject |
 | `lib/lethe/checker.rb` | comparing the two |
 | `lib/lethe/formatters.rb`, `exporter.rb` | output |
+| `lib/lethe/plan.rb`, `eraser.rb`, `leftovers.rb`, `sweeper.rb` | erasing |
 | `lib/lethe/runner.rb`, `tasks/lethe.rake` | the rake tasks |
-| `spec/fixtures/sns_app` | a small Rails app the integration specs run the tasks in |
+| `lib/generators/lethe/install` | `bin/rails generate lethe:install` |
+| `spec/fixtures/sns_app` | a small Rails app with real attachments, for the integration specs |
 | `ura/` | diagrams behind the specs, linked with [omoteura](https://github.com/kaibyaku-jp/omoteura) |
 
 ## Ground rules
 
-- lethe reads the schema and associations only. It must never read or write
-  a row of the application's data.
+- `check` and `export` read the schema and associations only, never a row.
+- `erase!` never runs while the check has problems, and never leaves half
+  an erasure: everything in the database happens in one transaction.
 - It adds nothing to the running application: no monkey patches, no
-  middleware, nothing loaded outside the rake tasks and `Lethe.check`.
+  callbacks, no middleware. Nothing runs unless the application calls lethe.
 - Every reference it finds must end up in the report. A spec checks this.
 
 ## Pull requests

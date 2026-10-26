@@ -1,0 +1,14 @@
+# One row each time lethe erases a subject or sweeps its kept rows: the
+# subject's class and id, and the number of rows per table. Nothing personal.
+class CreateLetheErasures < ActiveRecord::Migration[<%= ActiveRecord::Migration.current_version %>]
+  def change
+    create_table :lethe_erasures do |t|
+      t.string :subject_type, null: false
+      t.string :subject_id, null: false
+      t.string :kind, null: false
+      t.text :counts, null: false
+      t.datetime :created_at, null: false
+    end
+    add_index :lethe_erasures, [:subject_type, :subject_id]
+  end
+end

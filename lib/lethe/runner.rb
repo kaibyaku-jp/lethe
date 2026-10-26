@@ -39,6 +39,22 @@ module Lethe
       truthy?(@env["CHECK"]) ? compare(files) : write(files)
     end
 
+    def sweep
+      return 2 unless valid_locale?
+
+      Lethe.load_definitions(definition_path)
+      swept = Lethe.sweep!(models: models)
+      lines = swept.flat_map { |subject, counts| counts.map { |key, count| "lethe: swept #{count} from #{subject} #{key}" } }
+      @out.puts(lines.empty? ? "lethe: nothing to sweep" : lines)
+      0
+    rescue Error => error
+      @err.puts error.message
+      2
+    rescue ScriptError, StandardError => error
+      @err.puts I18n.t("lethe.errors.load_failed", path: relative(definition_path), error: "#{error.class}: #{error.message}", locale: locale)
+      2
+    end
+
     private
 
     def run_check
@@ -75,7 +91,7 @@ module Lethe
     end
 
     def models
-      @models || ActiveRecord::Base.descendants.reject { |model| model.abstract_class? || model.name.nil? }
+      @models || Lethe.application_models
     end
 
     def definition_path

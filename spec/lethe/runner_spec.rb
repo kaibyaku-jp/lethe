@@ -114,6 +114,35 @@ RSpec.describe Lethe::Runner do
     end
   end
 
+  describe "#sweep" do
+    it "returns 2 without the ledger table" do
+      complete_definitions
+
+      expect(runner.sweep).to eq(2)
+      expect(err.string).to include("lethe_erasures")
+    end
+
+    it "says when there is nothing to sweep" do
+      complete_definitions
+      models
+      ledger_table
+
+      expect(runner.sweep).to eq(0)
+      expect(out.string).to eq("lethe: nothing to sweep\n")
+    end
+
+    it "returns 2 when the definitions cannot be loaded" do
+      definitions("Lethe.define(")
+
+      expect(runner.sweep).to eq(2)
+      expect(err.string).to include("SyntaxError")
+    end
+
+    it "returns 2 for a locale it does not know" do
+      expect(runner("LOCALE" => "xx").sweep).to eq(2)
+    end
+  end
+
   describe "#export" do
     let(:markdown) { File.join(@root, "docs/lethe.md") }
     let(:json) { File.join(@root, "docs/lethe.json") }

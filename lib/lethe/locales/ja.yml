@@ -3,6 +3,9 @@ ja:
     errors:
       no_definitions_file: "lethe: %{path} がありません。方針をそこに書くか、Lethe.configuration.definition_path を設定してください。"
       load_failed: "lethe: %{path} を読み込めませんでした: %{error}"
+      ledger_required: "lethe: %{table} がありません。keep ..., for: には、いつ退会したかの記録が必要です。bin/rails generate lethe:install を実行して migrate してください。"
+      no_definition: "lethe: %{subject} の Lethe.define がありません"
+      foreign_key_cycle: "lethe: %{tables} の外部キーが循環していて、消す順番を決められません。cascade: true を使うか、外部キーを 1 つ外してください"
     vias:
       foreign_key: 外部キー
       association: 関連
@@ -36,6 +39,10 @@ ja:
       unknown_column: "%{option}: %{table} に %{column} という列はありません"
       retention_not_duration: "for: は 2.years のような期間にしてください"
       contradiction: "%{key} には %{other} で別の方針があります。どちらかを where: で絞ってください"
+      polymorphic_type_required: "%{key} はポリモーフィックです。他の型の行を消さないよう where: { %{type_column}: \"%{subject_type}\" } を足してください"
+      cascade_needs_model: "cascade: true には %{table} のモデルが必要です。モデルがなければ cascade を外してください"
+      computed_set_needs_primary_key: "set: に Proc を書くには、1 行ずつ書き換えるため %{table} に主キーが必要です"
+      kept_rows_block_destroy: "%{key} は %{subject} への外部キーを持つため、subject destroy: true で行を消すと残せません。論理削除にしてください"
       subject_both: "subject に destroy: と soft_delete: の両方は書けません"
       subject_neither: "subject には destroy: true か soft_delete: :列名 が必要です"
       subject_scrub_not_hash: "subject の scrub: は列と値の Hash にしてください"

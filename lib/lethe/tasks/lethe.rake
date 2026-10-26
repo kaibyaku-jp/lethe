@@ -16,4 +16,11 @@ namespace :lethe do
     status = Lethe::Runner.new(root: Rails.root).export
     exit status unless status.zero?
   end
+
+  desc "Delete kept rows whose `for:` has passed since their subject was erased"
+  task sweep: :environment do
+    Rails.application.eager_load!
+    status = Lethe::Runner.new(root: Rails.root).sweep
+    exit status unless status.zero?
+  end
 end

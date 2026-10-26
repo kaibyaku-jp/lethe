@@ -12,7 +12,8 @@ A time to keep, and a time to cast away.
 When someone deletes their account, every table that points at them needs a
 decision: delete the rows, overwrite what is personal, or keep them for a
 reason. lethe finds those tables in your Rails app, checks that each one has
-a declared policy, and fails CI when a new table has none.
+a declared policy, fails CI when a new table has none, and carries the
+policies out when the account goes.
 
 > **Status:** early, before its first release. Until 1.0, minor versions may
 > change how things work; [CHANGELOG.md](CHANGELOG.md) says what changed.
@@ -40,11 +41,18 @@ does a policy for a table or column that no longer exists.
 in English or Japanese, for your privacy policy, app store review or support
 team. CI can check that it is up to date, so every change shows up in review.
 
-### Hands Off Your Data
+### Erases as Declared
 
-lethe reads the schema and your models' associations. It never reads or
-writes a row, and it adds nothing to your running application: only rake
-tasks and a method for your tests.
+`Lethe.erase!(user)` deletes, overwrites and keeps exactly what the
+policies say, in one transaction, and refuses to run while the check has
+problems. `Lethe.leftovers(user)` proves in a test that nothing else was
+left behind.
+
+### Reads the Schema to Check
+
+`lethe:check` and `lethe:export` read the schema and your models'
+associations only, never a row. Only `erase!`, `plan`, `leftovers` and
+`lethe:sweep` touch data, and only when your code calls them.
 
 
 ## Supported Versions
@@ -66,8 +74,17 @@ group :development, :test do
 end
 ```
 
-Bundler loads it in development and test only. It adds the rake tasks and
-nothing else to your application.
+To erase accounts with it in production, put it outside the group instead.
+It adds the rake tasks and the methods below, and nothing else: no
+callbacks, middleware or patches to Rails.
+
+To keep rows for a while (`keep ..., for:`), lethe records each erasure in a
+table of its own. Create it, with a `config/lethe.rb` to start from:
+
+```sh
+% bin/rails generate lethe:install
+% bin/rails db:migrate
+```
 
 
 ## Declaring Policies
@@ -179,6 +196,85 @@ bin/rails lethe:check lethe:export CHECK=1 FORMAT=github
 ```
 
 
+## Erasing
+
+```ruby
+class AccountsController < ApplicationController
+  def destroy
+    Lethe.erase!(current_user)
+    reset_session
+    head :no_content
+  end
+end
+```
+
+`erase!` checks the subject's definition first and raises `Lethe::Unclean`
+without touching anything when it has problems. Then, in one transaction,
+it runs the `before_erase` hooks, deletes rows (those with foreign keys to
+other deleted tables first), overwrites columns, marks or deletes the
+subject's own row, runs the `after_erase` hooks and records the erasure. If
+anything fails, all of it is rolled back. Attachments are detached in the
+transaction and their files purged after it commits.
+
+| erasing | how |
+| --- | --- |
+| `destroy` | `delete_all` on the table, with no callbacks; `cascade: true` uses the model's `destroy_all`, so `dependent:` associations and attachments go too |
+| `scrub` | `update_all`; a Proc in `set:` is called for each row, given the row if it takes an argument |
+| `keep` | Nothing now; `lethe:sweep` deletes the rows once `for:` has passed |
+| polymorphic | The type always becomes part of the condition, so erasing User 5 never touches Post 5's rows |
+
+```ruby
+Lethe.define User do
+  subject soft_delete: :deleted_at,
+    scrub: {screen_name: ->(user) { "deleted_#{user.id}_#{SecureRandom.hex(8)}" }}
+  destroy :episodes, cascade: true
+  destroy "ratings.target_id", where: {target_type: "User"}
+
+  before_erase { |user| Follow.decrement_counters_for(user) }
+  after_erase { |user| DeleteFirebaseAccountJob.perform_later(user.firebase_uid) }
+end
+```
+
+Hooks run inside the transaction. Anything that cannot be rolled back,
+such as a call to another service, belongs in a job enqueued from
+`after_erase`.
+
+`Lethe.plan(user)` lists the steps and how many rows each touches, without
+changing anything. `erase!` returns the rows per table and policy, and
+sends an `erase.lethe` notification with the subject's class, id and those
+counts, never anything personal.
+
+Running `erase!` again is safe: what is gone stays gone, and a soft
+delete keeps the time of the first erasure.
+
+### Proving It in Tests
+
+```ruby
+it "leaves nothing of a user behind but what we keep" do
+  user = create(:user, :with_everything)
+  Lethe.erase!(user)
+
+  expect(Lethe.leftovers(user)).to be_empty
+end
+```
+
+`leftovers` lists rows that should be gone, columns that should have been
+overwritten (values from a Proc are not compared), attachments, and the
+subject's row.
+
+### Sweeping
+
+Run this daily, from cron or a recurring job:
+
+```sh
+% bin/rails lethe:sweep
+lethe: swept 3 from User :inquiries
+```
+
+It deletes the rows of each `keep ..., for:` whose time has passed since
+their subject was first erased.
+
+
 ## Configuring lethe
 
 In `config/initializers/lethe.rb`, or anywhere loaded before the tasks run:
@@ -189,6 +285,7 @@ Lethe.configure do |config|
   config.export_path = "docs/lethe"            # .md and .json are added
   config.skip_tables = %w[audit_logs]          # besides Rails' own
   config.guess_columns[User] = %w[follower_id following_id questioner_id]
+  config.purge = :later                        # or :now, for erased attachments' files
 end
 ```
 

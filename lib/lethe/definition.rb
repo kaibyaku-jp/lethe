@@ -3,13 +3,18 @@
 module Lethe
   # The policies declared for one subject, such as User.
   class Definition
-    attr_reader :subject_name, :policies
+    attr_reader :subject_name, :policies, :hooks
     attr_accessor :subject_policy
 
     def initialize(subject_name)
       @subject_name = subject_name
       @policies = []
+      @hooks = []
       @subject_policy = nil
+    end
+
+    def hooks_for(moment)
+      hooks.select { |hook| hook.moment == moment }
     end
 
     # The methods available inside Lethe.define.
@@ -18,9 +23,10 @@ module Lethe
         @definition = definition
       end
 
-      # Delete the rows.
-      def destroy(*targets, reason: nil, where: nil)
-        add(:destroy, targets, location: caller_location, reason: reason, where: where)
+      # Delete the rows. cascade: true deletes them through Active Record,
+      # so that dependent: associations, callbacks and attachments go too.
+      def destroy(*targets, reason: nil, where: nil, cascade: false)
+        add(:destroy, targets, location: caller_location, reason: reason, where: where, cascade: cascade)
       end
 
       # Keep the rows but overwrite columns: scrub :posts, set: { body: "" }
@@ -49,7 +55,7 @@ module Lethe
         names.each do |name|
           @definition.policies << Policy.new(
             action: :destroy_attachment, target: Target.attachment(name), reason: reason,
-            retention: nil, where: nil, set: nil, location: location
+            retention: nil, where: nil, set: nil, cascade: false, location: location
           )
         end
       end
@@ -61,17 +67,36 @@ module Lethe
         )
       end
 
+      # Runs inside the erasure's transaction, before anything is deleted.
+      def before_erase(&block)
+        hook(:before, block)
+      end
+
+      # Runs inside the erasure's transaction, after everything is deleted.
+      # Anything that cannot be rolled back, such as a call to another
+      # service, belongs in a job enqueued from here.
+      def after_erase(&block)
+        hook(:after, block)
+      end
+
       private
 
-      def add(action, targets, location:, reason: nil, where: nil, set: nil, retention: nil)
+      def add(action, targets, location:, reason: nil, where: nil, set: nil, retention: nil, cascade: false)
         raise ArgumentError, "lethe: #{action} needs at least one target" if targets.empty?
 
         targets.each do |value|
           @definition.policies << Policy.new(
             action: action, target: Target.parse(value), reason: reason,
-            retention: retention, where: where, set: set, location: location
+            retention: retention, where: where, set: set, cascade: cascade ? true : false, location: location
           )
         end
+      end
+
+      def hook(moment, block)
+        raise ArgumentError, "lethe: #{moment}_erase needs a block" unless block
+
+        location = caller_locations(2, 1).first
+        @definition.hooks << Hook.new(moment: moment, block: block, location: "#{location.path}:#{location.lineno}")
       end
 
       def caller_location

@@ -17,8 +17,8 @@ module Lethe
         policies = definition.policies.select { |policy| policy.action == :keep && policy.retention }
         next if policies.empty?
 
-        subject = definition.subject_name.constantize.base_class
-        erased = Ledger.erased(subject.name)
+        subject = definition.subject_name.constantize
+        erased = Ledger.erased(definition.subject_name)
         locator = Locator.new(subject, models: @models)
         policies.each do |policy|
           ids = erased.select { |_, at| at <= @now - policy.retention }.keys

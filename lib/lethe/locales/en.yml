@@ -37,6 +37,7 @@ en:
       set_required: "scrub needs set: with the columns to overwrite"
       where_not_hash: "where: must be a non-empty Hash of columns"
       unknown_column: "%{option}: %{table} has no column %{column}"
+      unknown_enum_value: "%{option}: %{value} is not a value of the %{column} enum on %{table}"
       retention_not_duration: "for: must be a duration such as 2.years"
       contradiction: "%{key} already has a different policy at %{other}; limit one of them with where:"
       polymorphic_type_required: "%{key} is polymorphic; add where: { %{type_column}: \"%{subject_type}\" } so other types' rows stay"

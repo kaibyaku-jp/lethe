@@ -192,7 +192,7 @@ RSpec.describe Lethe::Checker do
           t.string :emoji
         end
         connection.create_table(:tags, id: false) { |t| t.bigint :user_id }
-        connection.schema_cache.clear!
+        forget_schema
       end
 
       def invalid_messages(&declarations)

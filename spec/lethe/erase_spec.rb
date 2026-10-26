@@ -148,7 +148,7 @@ RSpec.describe "Lethe.erase!" do
 
   it "never confuses a polymorphic id with another type's" do
     connection.create_table(:widgets)
-    connection.schema_cache.clear!
+    forget_schema
     widget_class = Class.new(ActiveRecord::Base) { self.table_name = "widgets" }
     stub_const("Widget", widget_class)
     widget = Widget.create!(id: alice.id)
@@ -266,8 +266,7 @@ RSpec.describe "Lethe.erase!" do
 
   it "refuses foreign keys it cannot order" do
     connection.add_reference(:posts, :pinned_comment, foreign_key: {to_table: :comments})
-    connection.schema_cache.clear!
-    Lethe::Rows.reset!
+    forget_schema
     define
 
     expect { Lethe.plan(alice, models: models) }.to raise_error(Lethe::Error, /cycle/)

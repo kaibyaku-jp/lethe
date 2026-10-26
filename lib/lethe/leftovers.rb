@@ -43,7 +43,7 @@ module Lethe
 
         allowed = policies.select { |policy| %i[keep scrub].include?(policy.action) }
         unless allowed.any? { |policy| policy.where.nil? }
-          staying = allowed.map { |policy| base.where(policy.where) }.reduce { |all, scope| all.or(scope) }
+          staying = allowed.map { |policy| base.where(Enums.cast(location.model, policy.where)) }.reduce { |all, scope| all.or(scope) }
           count = base.count - (staying ? staying.count : 0)
           found << Leftover.new(key: result.key, problem: :not_deleted, count: count) if count.positive?
         end
@@ -52,7 +52,7 @@ module Lethe
           fixed = policy.set.reject { |_, value| value.is_a?(Proc) }
           next if fixed.empty?
 
-          count = base.where(policy.where || {}).where.not(fixed).count
+          count = base.where(Enums.cast(location.model, policy.where || {})).where.not(Enums.cast(location.model, fixed)).count
           found << Leftover.new(key: result.key, problem: :not_scrubbed, count: count) if count.positive?
         end
         found
@@ -67,7 +67,7 @@ module Lethe
       type_column = "#{location.column.delete_suffix("_id")}_type"
       return {} unless @locator.rows(location).column_names.include?(type_column)
 
-      policies.first.where.transform_keys(&:to_s).slice(type_column)
+      Enums.cast(location.model, policies.first.where).transform_keys(&:to_s).slice(type_column)
     end
 
     def attachments
@@ -89,7 +89,7 @@ module Lethe
       found = []
       found << Leftover.new(key: "subject", problem: :not_marked_deleted, count: 1) if row.where(policy.soft_delete => nil).exists?
       fixed = policy.scrub.reject { |_, value| value.is_a?(Proc) }
-      if fixed.any? && row.where.not(fixed).exists?
+      if fixed.any? && row.where.not(Enums.cast(@subject, fixed)).exists?
         found << Leftover.new(key: "subject", problem: :not_scrubbed, count: 1)
       end
       found

@@ -31,4 +31,8 @@ The first release.
 - The check also fails on a polymorphic "table.column" without its type,
   `cascade: true` without a model, and rows kept with a foreign key to a
   subject row that is deleted.
+- Enum names in `where:` and `set:`, read through the application's model;
+  a name the enum does not have fails the check.
+- A definition for an STI subclass is used for its records, and its kept
+  rows are swept by its own retention.
 - Messages and exports in English and Japanese.

@@ -1,10 +1,21 @@
 # frozen_string_literal: true
 
-# A fresh schema for each example, on SQLite in memory by default.
+require "tmpdir"
+
+# A fresh schema for each example, on SQLite by default.
 # Set DATABASE_URL to run the same specs on MySQL or PostgreSQL.
 module DatabaseHelpers
+  # A file rather than :memory:, where every connection the pool hands out
+  # would be a different, empty database.
+  SQLITE_PATH = File.join(Dir.tmpdir, "lethe-spec-#{Process.pid}.sqlite3")
+
   def self.connect
-    ActiveRecord::Base.establish_connection(ENV.fetch("DATABASE_URL", "sqlite3::memory:"))
+    url = ENV.fetch("DATABASE_URL") do
+      File.delete(SQLITE_PATH) if File.exist?(SQLITE_PATH)
+      at_exit { File.delete(SQLITE_PATH) if File.exist?(SQLITE_PATH) }
+      "sqlite3:#{SQLITE_PATH}"
+    end
+    ActiveRecord::Base.establish_connection(url)
     ActiveRecord::Schema.verbose = false
   end
 
@@ -17,9 +28,16 @@ module DatabaseHelpers
     connection.disable_referential_integrity do
       connection.tables.each { |table| connection.drop_table(table, force: :cascade) }
     end
-    connection.schema_cache.clear!
-    Lethe::Rows.reset!
+    forget_schema
     ActiveRecord::Schema.define(&block)
+  end
+
+  # Tables are dropped and made again under the same names, so forget the
+  # columns and the prepared statements that remember the old ones.
+  def forget_schema
+    connection.schema_cache.clear!
+    connection.clear_cache!
+    Lethe::Rows.reset!
   end
 
   # The table bin/rails generate lethe:install creates.
@@ -31,8 +49,7 @@ module DatabaseHelpers
       t.text :counts, null: false
       t.datetime :created_at, null: false
     end
-    connection.schema_cache.clear!
-    Lethe::Rows.reset!
+    forget_schema
   end
 
   # Defines a model as a constant for this example only.

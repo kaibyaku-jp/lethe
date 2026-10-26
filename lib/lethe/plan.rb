@@ -30,7 +30,7 @@ module Lethe
       @record = record
       @definition = definition
       @connection = connection
-      @locator = Locator.new(record.class.base_class, models: models)
+      @locator = Locator.new(record.class, models: models)
       @steps = build(results)
     end
 

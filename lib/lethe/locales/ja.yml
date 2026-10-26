@@ -37,6 +37,7 @@ ja:
       set_required: "scrub には、書き換える列を set: で書いてください"
       where_not_hash: "where: は列と値の Hash にしてください"
       unknown_column: "%{option}: %{table} に %{column} という列はありません"
+      unknown_enum_value: "%{option}: %{value} は %{table} の %{column} の enum にない値です"
       retention_not_duration: "for: は 2.years のような期間にしてください"
       contradiction: "%{key} には %{other} で別の方針があります。どちらかを where: で絞ってください"
       polymorphic_type_required: "%{key} はポリモーフィックです。他の型の行を消さないよう where: { %{type_column}: \"%{subject_type}\" } を足してください"

@@ -125,6 +125,12 @@ end
 
 `where:` limits a policy to some rows, so the same table can have one policy
 per condition. lethe does not check that the conditions cover every row.
+Enum names work in `where:` and `set:` as they do with your model, and a
+name the enum does not have fails the check.
+
+An STI subclass, such as `Admin < User`, can have a definition of its own.
+It is used instead of the base class's for records of that class, so it
+must declare everything.
 
 Declare more subjects, such as `Organization`, the same way. Declarations
 for the same subject add up.

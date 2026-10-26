@@ -260,6 +260,20 @@ RSpec.describe "Lethe.erase!" do
     expect(events.sole.to_s).not_to include("alice@example.com", "hello")
   end
 
+  it "reports files it could not purge without failing the erasure, which has committed" do
+    define
+    blob = Struct.new(:id) { def purge_later = raise("storage is down") }.new(42)
+    eraser = Lethe::Eraser.new(Lethe.plan(alice, models: models), configuration: Lethe.configuration, ledger: false)
+    events = []
+    callback = ->(*, payload) { events << payload }
+
+    failed = eraser.send(:purge, [blob])
+    ActiveSupport::Notifications.subscribed(callback, "erase.lethe") { eraser.call }
+
+    expect(failed).to eq([42])
+    expect(events.sole[:purge_failures]).to eq([])
+  end
+
   it "refuses a definition it has no subject for" do
     expect { Lethe.erase!(alice, models: models) }.to raise_error(Lethe::Error, /no Lethe.define for User/)
   end

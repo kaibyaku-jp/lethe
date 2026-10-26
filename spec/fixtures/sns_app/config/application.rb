@@ -14,6 +14,9 @@ module SnsApp
     config.logger = Logger.new(nil)
     config.secret_key_base = "lethe-fixture"
     config.active_storage.service = :local
+    # Jobs such as Active Storage's analysis run at once, not in a thread
+    # that writes to the same SQLite file at the same time as the script.
+    config.active_job.queue_adapter = :inline
     config.i18n.available_locales = %i[en ja]
 
     config.after_initialize do

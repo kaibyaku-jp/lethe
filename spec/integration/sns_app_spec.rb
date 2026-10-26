@@ -80,7 +80,7 @@ RSpec.describe "the rake tasks in a Rails app" do
 
   it "erases a user with a real attachment, and leaves nothing behind" do
     stdout, stderr, status = Open3.capture3(
-      {"BUNDLE_GEMFILE" => self.class.metadata[:gemfile], "COVERAGE" => "0"},
+      {"BUNDLE_GEMFILE" => self.class.metadata[:gemfile], "COVERAGE" => "0", "LETHE_DEFINITION" => "config/lethe_complete.rb"},
       "bundle", "exec", "ruby", "script/erase.rb", chdir: self.class.metadata[:app]
     )
 
@@ -93,6 +93,8 @@ RSpec.describe "the rake tasks in a Rails app" do
       "bob_avatar" => true,
       "ledger" => [%w[User erase]]
     )
+    # erase! loaded config/lethe.rb and every model by itself, as in a controller.
+    expect(result["models"]).to include("AdminUser", "AuditLog", "Follow", "Inquiry", "MutedUser", "Post", "User")
     expect(result["counts"]).to include(
       "attachment:avatar" => {"attachment" => 1}, "posts.user_id" => {"scrub" => 1}, "inquiries.user_id" => {"keep" => 0}
     )

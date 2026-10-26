@@ -170,11 +170,13 @@ In a test instead:
 
 ```ruby
 it "has a policy for every table that points at a user" do
-  Rails.application.eager_load!
-  Lethe.load_definitions(Rails.root.join("config/lethe.rb"))
   Lethe.check!
 end
 ```
+
+Inside a Rails app, lethe loads `config/lethe.rb` the first time it is
+needed, and loads every model once where `eager_load` is off, so that
+development and test see the same associations as CI.
 
 
 ## Exporting
@@ -248,7 +250,9 @@ such as a call to another service, belongs in a job enqueued from
 `Lethe.plan(user)` lists the steps and how many rows each touches, without
 changing anything. `erase!` returns the rows per table and policy, and
 sends an `erase.lethe` notification with the subject's class, id and those
-counts, never anything personal.
+counts, never anything personal. Files that could not be purged after the
+commit are logged and listed as `purge_failures` (blob ids) rather than
+raised, since the erasure itself has already committed.
 
 Running `erase!` again is safe: what is gone stays gone, and a soft
 delete keeps the time of the first erasure.

@@ -44,6 +44,8 @@ module Lethe
 
   I18n.load_path += Dir[File.join(__dir__, "lethe", "locales", "*.yml")]
 
+  PREPARE_MUTEX = Mutex.new
+
   class << self
     def configuration
       @configuration ||= Configuration.new
@@ -91,7 +93,9 @@ module Lethe
 
     # Checks every definition against the schema and returns a Report.
     # models defaults to every loaded Active Record model with a table.
-    def check(definitions: self.definitions.values, models: nil, connection: nil, strict: false)
+    def check(definitions: nil, models: nil, connection: nil, strict: false)
+      prepare_application if definitions.nil?
+      definitions ||= self.definitions.values
       run = lambda do |conn|
         definitions.flat_map do |definition|
           Checker.new(definition, models: models, connection: conn, configuration: configuration).call
@@ -112,6 +116,7 @@ module Lethe
     # What erasing record would do, step by step, without doing it.
     # Raises Lethe::Unclean when the record's definition does not pass the check.
     def plan(record, models: nil)
+      prepare_application
       definition, report = checked(record.class, models)
       ActiveRecord::Base.with_connection do |connection|
         Plan.new(record, definition, report.results, models: models || application_models, connection: connection)
@@ -133,6 +138,7 @@ module Lethe
     # After erase!, what still points at the subject in a way its definition
     # does not allow. Empty when the erasure left nothing behind. For tests.
     def leftovers(record_or_class, id = nil, models: nil)
+      prepare_application
       subject = record_or_class.is_a?(Class) ? record_or_class : record_or_class.class
       id ||= record_or_class.id
       definition, report = checked(subject, models)
@@ -141,6 +147,7 @@ module Lethe
 
     # Deletes kept rows whose `for:` has passed since their subject was erased.
     def sweep!(models: nil, now: Time.current)
+      prepare_application
       ActiveRecord::Base.with_connection do |connection|
         raise Error, I18n.t("lethe.errors.ledger_required", table: Ledger::TABLE) unless Ledger.available?(connection)
       end
@@ -150,6 +157,25 @@ module Lethe
     end
 
     private
+
+    # Inside a Rails application: loads config/lethe.rb the first time it is
+    # needed, unless definitions were loaded or declared already, and loads
+    # every model once, so that development and test see the same
+    # associations as production and CI.
+    def prepare_application
+      return unless defined?(Rails.application) && Rails.application
+
+      PREPARE_MUTEX.synchronize do
+        if definitions.empty?
+          path = Rails.root.join(configuration.definition_path)
+          load_definitions(path) if File.file?(path)
+        end
+        unless @eager_loaded || Rails.application.config.eager_load
+          Rails.application.eager_load!
+          @eager_loaded = true
+        end
+      end
+    end
 
     def checked(subject, models)
       definition = definitions[subject.name] || definitions[subject.base_class.name]

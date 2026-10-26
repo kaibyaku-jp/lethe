@@ -31,8 +31,10 @@ module Lethe
 
       erasure = Erasure.new(subject: subject_type, id: @record.id, counts: counts)
       ActiveRecord.after_all_transactions_commit do
-        purge(blobs)
-        ActiveSupport::Notifications.instrument("erase.lethe", subject: erasure.subject, id: erasure.id, counts: counts)
+        failed = purge(blobs)
+        ActiveSupport::Notifications.instrument(
+          "erase.lethe", subject: erasure.subject, id: erasure.id, counts: counts, purge_failures: failed
+        )
       end
       erasure
     end
@@ -96,8 +98,17 @@ module Lethe
       attachments.size
     end
 
+    # The erasure has committed by now, so a file that cannot be purged must
+    # not make it look as if it failed. Returns the blob ids that could not be
+    # purged, for the notification; their blobs are already detached.
     def purge(blobs)
-      blobs.each { |blob| (@configuration.purge == :now) ? blob.purge : blob.purge_later }
+      blobs.filter_map do |blob|
+        (@configuration.purge == :now) ? blob.purge : blob.purge_later
+        nil
+      rescue => error
+        ActiveRecord::Base.logger&.warn("lethe: could not purge blob #{blob.id}: #{error.class}: #{error.message}")
+        blob.id
+      end
     end
 
     def evaluate(set, row)

@@ -6,8 +6,8 @@ require_relative "../config/environment"
 require "json"
 require "stringio"
 
-Rails.application.eager_load!
-Lethe.load_definitions(Rails.root.join(ENV.fetch("LETHE_DEFINITION", "config/lethe_complete.rb")))
+# No eager_load! or load_definitions here: erase! has to do both itself,
+# as it would in a controller.
 
 alice = User.create!(nickname: "Alice", email: "alice@example.com")
 bob = User.create!(nickname: "Bob", email: "bob@example.com")
@@ -28,5 +28,6 @@ puts JSON.generate(
   user: User.find(alice.id).slice(:nickname, :email, :deleted_at).transform_values(&:present?),
   avatar_file: ActiveStorage::Blob.service.exist?(avatar_key),
   bob_avatar: bob.reload.avatar.attached?,
-  ledger: Lethe::Rows.for("lethe_erasures").pluck(:subject_type, :kind)
+  ledger: Lethe::Rows.for("lethe_erasures").pluck(:subject_type, :kind),
+  models: Lethe.application_models.map(&:name).sort
 )

@@ -36,4 +36,6 @@ The first release.
   a name the enum does not have fails the check.
 - A definition for an STI subclass is used for its records, and its kept
   rows are swept by its own retention.
+- Inside a Rails app, `config/lethe.rb` and every model are loaded on first
+  use, so `Lethe.erase!` works from a controller and sees what CI sees.
 - Messages and exports in English and Japanese.

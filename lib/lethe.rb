@@ -15,6 +15,13 @@ require_relative "lethe/checker"
 require_relative "lethe/formatters"
 require_relative "lethe/exporter"
 require_relative "lethe/runner"
+require_relative "lethe/rows"
+require_relative "lethe/locator"
+require_relative "lethe/plan"
+require_relative "lethe/ledger"
+require_relative "lethe/eraser"
+require_relative "lethe/leftovers"
+require_relative "lethe/sweeper"
 
 # Declares what happens to the data that points at a model, such as User,
 # when that record goes away, and finds the tables nobody declared.
@@ -99,6 +106,58 @@ module Lethe
       raise Unclean, report unless report.clean?
 
       report
+    end
+
+    # What erasing record would do, step by step, without doing it.
+    # Raises Lethe::Unclean when the record's definition does not pass the check.
+    def plan(record, models: nil)
+      definition, report = checked(record.class, models)
+      ActiveRecord::Base.with_connection do |connection|
+        Plan.new(record, definition, report.results, models: models || application_models, connection: connection)
+      end
+    end
+
+    # Erases record as its definition declares, in one transaction, and
+    # returns what it did. Refuses with Lethe::Unclean unless the check passes.
+    def erase!(record, models: nil)
+      plan = plan(record, models: models)
+      ledger = ActiveRecord::Base.with_connection { |connection| Ledger.available?(connection) }
+      if !ledger && plan.definition.policies.any?(&:retention)
+        raise Error, I18n.t("lethe.errors.ledger_required", table: Ledger::TABLE)
+      end
+
+      Eraser.new(plan, configuration: configuration, ledger: ledger).call
+    end
+
+    # After erase!, what still points at the subject in a way its definition
+    # does not allow. Empty when the erasure left nothing behind. For tests.
+    def leftovers(record_or_class, id = nil, models: nil)
+      subject = record_or_class.is_a?(Class) ? record_or_class : record_or_class.class
+      id ||= record_or_class.id
+      definition, report = checked(subject, models)
+      Leftovers.new(subject.base_class, id, definition, report.results, models: models || application_models).call
+    end
+
+    # Deletes kept rows whose `for:` has passed since their subject was erased.
+    def sweep!(models: nil, now: Time.current)
+      ActiveRecord::Base.with_connection do |connection|
+        raise Error, I18n.t("lethe.errors.ledger_required", table: Ledger::TABLE) unless Ledger.available?(connection)
+      end
+      swept = Sweeper.new(definitions.values, models: models || application_models, now: now).call
+      ActiveSupport::Notifications.instrument("sweep.lethe", counts: swept)
+      swept
+    end
+
+    private
+
+    def checked(subject, models)
+      definition = definitions[subject.name] || definitions[subject.base_class.name]
+      raise Error, I18n.t("lethe.errors.no_definition", subject: subject.name) unless definition
+
+      report = check(definitions: [definition], models: models)
+      raise Unclean, report unless report.clean?
+
+      [definition, report]
     end
   end
 end

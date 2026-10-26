@@ -18,7 +18,21 @@ module DatabaseHelpers
       connection.tables.each { |table| connection.drop_table(table, force: :cascade) }
     end
     connection.schema_cache.clear!
+    Lethe::Rows.reset!
     ActiveRecord::Schema.define(&block)
+  end
+
+  # The table bin/rails generate lethe:install creates.
+  def ledger_table
+    connection.create_table(:lethe_erasures) do |t|
+      t.string :subject_type, null: false
+      t.string :subject_id, null: false
+      t.string :kind, null: false
+      t.text :counts, null: false
+      t.datetime :created_at, null: false
+    end
+    connection.schema_cache.clear!
+    Lethe::Rows.reset!
   end
 
   # Defines a model as a constant for this example only.

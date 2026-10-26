@@ -1,0 +1,7 @@
+# frozen_string_literal: true
+
+# What happens to the data that points at a user when they leave.
+# bin/rails lethe:check lists what still needs a policy.
+Lethe.define "User" do
+  subject destroy: true
+end

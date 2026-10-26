@@ -21,4 +21,14 @@ The first release.
 - `bin/rails lethe:export`, which writes the policies as Markdown and JSON,
   and `CHECK=1` to fail when they are out of date.
 - `Lethe.check!` for tests.
+- `Lethe.erase!` to carry the policies out in one transaction, refusing
+  while the check has problems; `destroy ..., cascade: true`, Procs in
+  `set:`, and `before_erase` / `after_erase` hooks.
+- `Lethe.plan` to see the steps without changing anything, and
+  `Lethe.leftovers` to prove in tests that nothing else was left behind.
+- `bin/rails lethe:sweep` to delete kept rows once `keep ..., for:` has
+  passed, and `bin/rails generate lethe:install` for the table it needs.
+- The check also fails on a polymorphic "table.column" without its type,
+  `cascade: true` without a model, and rows kept with a foreign key to a
+  subject row that is deleted.
 - Messages and exports in English and Japanese.

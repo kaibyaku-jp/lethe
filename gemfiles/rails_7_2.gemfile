@@ -6,3 +6,5 @@ eval_gemfile "../Gemfile"
 
 gem "activerecord", @rails_requirement
 gem "railties", @rails_requirement
+# This Rails passes options that json 3 no longer accepts.
+gem "json", "~> 2.10"

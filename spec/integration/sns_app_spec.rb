@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require "json"
 require "open3"
 require "tmpdir"
 
@@ -75,6 +76,32 @@ RSpec.describe "the rake tasks in a Rails app" do
 
     _, _, status = rake("lethe:export", definition: "config/lethe_complete.rb", CHECK: "1")
     expect(status).to eq(0)
+  end
+
+  it "erases a user with a real attachment, and leaves nothing behind" do
+    stdout, stderr, status = Open3.capture3(
+      {"BUNDLE_GEMFILE" => self.class.metadata[:gemfile], "COVERAGE" => "0"},
+      "bundle", "exec", "ruby", "script/erase.rb", chdir: self.class.metadata[:app]
+    )
+
+    expect([status.exitstatus, stderr]).to eq([0, ""])
+    result = JSON.parse(stdout)
+    expect(result).to include(
+      "leftovers" => [],
+      "user" => {"nickname" => true, "email" => false, "deleted_at" => true},
+      "avatar_file" => false,
+      "bob_avatar" => true,
+      "ledger" => [%w[User erase]]
+    )
+    expect(result["counts"]).to include(
+      "attachment:avatar" => {"attachment" => 1}, "posts.user_id" => {"scrub" => 1}, "inquiries.user_id" => {"keep" => 0}
+    )
+  end
+
+  it "sweeps from a rake task" do
+    stdout, stderr, status = rake("lethe:sweep", definition: "config/lethe_complete.rb")
+
+    expect([status, stderr, stdout]).to eq([0, "", "lethe: nothing to sweep\n"])
   end
 
   it "exits 2 when the definitions cannot be loaded" do

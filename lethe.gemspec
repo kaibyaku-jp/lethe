@@ -21,7 +21,7 @@ Gem::Specification.new do |spec|
   spec.metadata["changelog_uri"] = "#{spec.homepage}/blob/main/CHANGELOG.md"
   spec.metadata["rubygems_mfa_required"] = "true"
 
-  spec.files = Dir.glob(["lib/**/*.{rb,rake,yml}", "README.md", "LICENSE", "CHANGELOG.md"], base: __dir__)
+  spec.files = Dir.glob(["lib/**/*.{rb,rake,yml,tt}", "README.md", "LICENSE", "CHANGELOG.md"], base: __dir__)
 
   spec.add_dependency "activerecord", ">= 7.2", "< 9"
   spec.add_dependency "railties", ">= 7.2", "< 9"

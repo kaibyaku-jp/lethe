@@ -173,7 +173,7 @@ RSpec.describe Lethe::Checker do
 
     it "reports two policies that disagree about the same rows" do
       Lethe.define("User") do
-        subject destroy: true
+        subject soft_delete: :deleted_at
         destroy :ratings
         keep :ratings, reason: "changed my mind"
       end
@@ -183,6 +183,56 @@ RSpec.describe Lethe::Checker do
       expect(invalid.map { |result| result.message.first }).to eq(["contradiction"])
       expect(invalid.sole.message.last).to include(key: "ratings.user_id")
       expect(result_for(report, "ratings.user_id").status).to eq(:covered)
+    end
+
+    describe "what erasing would get wrong" do
+      before do
+        connection.create_table(:reactions) do |t|
+          t.references :target, polymorphic: true
+          t.string :emoji
+        end
+        connection.create_table(:tags, id: false) { |t| t.bigint :user_id }
+        connection.schema_cache.clear!
+      end
+
+      def invalid_messages(&declarations)
+        Lethe.reset_definitions!
+        Lethe.define("User", &declarations)
+        check(models).results.select { |result| result.status == :invalid }.map { |result| result.message.first }
+      end
+
+      it "needs the type of a polymorphic column" do
+        messages = invalid_messages do
+          subject destroy: true
+          destroy "reactions.target_id"
+        end
+        expect(messages).to eq(["polymorphic_type_required"])
+
+        messages = invalid_messages do
+          destroy "reactions.target_id", where: {target_type: "User"}
+        end
+        expect(messages).to eq([])
+      end
+
+      it "needs a model to cascade through" do
+        expect(invalid_messages { destroy "tags.user_id", cascade: true }).to eq(["cascade_needs_model"])
+        expect(invalid_messages { destroy :ratings, cascade: true }).to eq([])
+      end
+
+      it "needs a primary key to compute values row by row" do
+        expect(invalid_messages { scrub "tags.user_id", set: {user_id: -> { 0 }} }).to eq(["computed_set_needs_primary_key"])
+        expect(invalid_messages { scrub :posts, set: {body: -> { "" }} }).to eq([])
+      end
+
+      it "will not keep rows with a foreign key to a row it deletes" do
+        messages = invalid_messages do
+          subject destroy: true
+          keep :ratings, reason: "statistics"
+          scrub :posts, set: {body: ""}
+          keep "muted_users.muted_user_id", reason: "no foreign key"
+        end
+        expect(messages).to eq(%w[kept_rows_block_destroy kept_rows_block_destroy])
+      end
     end
 
     {

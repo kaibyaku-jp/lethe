@@ -43,6 +43,7 @@ module Lethe
       end
 
       results << subject_result
+      results.concat(blocked_by_foreign_keys(results))
       results
     end
 
@@ -53,7 +54,7 @@ module Lethe
     end
 
     def models
-      @models || ActiveRecord::Base.descendants.reject { |model| model.abstract_class? || model.name.nil? }
+      @models || Lethe.application_models
     end
 
     def resolve_subject
@@ -143,7 +144,53 @@ module Lethe
       unless policy.retention.nil? || policy.retention.is_a?(ActiveSupport::Duration)
         problems << invalid(policy, "retention_not_duration")
       end
-      problems
+
+      if table
+        problems << polymorphic_type_problem(policy, key, table)
+        if policy.cascade && !model_for_table(table)
+          problems << invalid(policy, "cascade_needs_model", table: table)
+        end
+        if policy.action == :scrub && policy.computed_set? && !@connection.primary_key(table)
+          problems << invalid(policy, "computed_set_needs_primary_key", table: table)
+        end
+      end
+      problems.compact
+    end
+
+    # A "table.column" for a polymorphic *_id must say which type it means,
+    # or erasing User 5 would also erase what belongs to Post 5.
+    def polymorphic_type_problem(policy, key, table)
+      return nil unless policy.target.kind == :column
+
+      column = key.split(".", 2).last
+      return nil unless column.end_with?("_id")
+
+      type_column = "#{column.delete_suffix("_id")}_type"
+      return nil unless column_names(table).include?(type_column)
+      return nil if policy.where.is_a?(Hash) && policy.where.keys.map(&:to_s).include?(type_column)
+
+      invalid(policy, "polymorphic_type_required", key: key, type_column: type_column, subject_type: @subject.polymorphic_name)
+    end
+
+    # When the subject's row is deleted, rows that stay and point at it
+    # through a foreign key would make the delete fail.
+    def blocked_by_foreign_keys(results)
+      return [] unless @definition.subject_policy&.destroy
+
+      results.filter_map do |result|
+        next unless result.status == :covered && result.reference&.vias&.include?(:foreign_key)
+
+        staying = result.policies.find { |policy| %i[keep scrub].include?(policy.action) }
+        invalid(staying, "kept_rows_block_destroy", key: result.key) if staying
+      end
+    end
+
+    def model_for_table(table)
+      models.find do |model|
+        !model.abstract_class? && model.table_name == table && model.base_class == model
+      rescue ActiveRecord::ActiveRecordError
+        false
+      end
     end
 
     def unknown_columns(policy, table, names, option)

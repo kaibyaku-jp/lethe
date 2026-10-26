@@ -3,6 +3,9 @@ en:
     errors:
       no_definitions_file: "lethe: %{path} not found. Declare your policies there, or set Lethe.configuration.definition_path."
       load_failed: "lethe: could not load %{path}: %{error}"
+      ledger_required: "lethe: %{table} is missing; keep ..., for: needs it to know when a subject was erased. Run bin/rails generate lethe:install and migrate."
+      no_definition: "lethe: there is no Lethe.define for %{subject}"
+      foreign_key_cycle: "lethe: foreign keys between %{tables} form a cycle, so there is no order to delete them in; use cascade: true or remove one of the keys"
     vias:
       foreign_key: foreign key
       association: association
@@ -36,6 +39,10 @@ en:
       unknown_column: "%{option}: %{table} has no column %{column}"
       retention_not_duration: "for: must be a duration such as 2.years"
       contradiction: "%{key} already has a different policy at %{other}; limit one of them with where:"
+      polymorphic_type_required: "%{key} is polymorphic; add where: { %{type_column}: \"%{subject_type}\" } so other types' rows stay"
+      cascade_needs_model: "cascade: true needs a model for %{table}; without one, leave cascade out"
+      computed_set_needs_primary_key: "a Proc in set: needs %{table} to have a primary key, to update one row at a time"
+      kept_rows_block_destroy: "%{key} has a foreign key to %{subject}, so its rows cannot stay when subject destroy: true deletes the row; soft delete it instead"
       subject_both: "subject cannot both destroy: and soft_delete:"
       subject_neither: "subject needs destroy: true or soft_delete: :column"
       subject_scrub_not_hash: "subject scrub: must be a Hash of columns"

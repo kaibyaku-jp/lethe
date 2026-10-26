@@ -18,7 +18,9 @@ module SnsApp
 
     config.after_initialize do
       ActiveRecord::Schema.verbose = false
-      load Rails.root.join("db/schema.rb")
+      ActiveRecord::Base.connection_pool.with_connection do |connection|
+        connection.disable_referential_integrity { load Rails.root.join("db/schema.rb") }
+      end
     end
   end
 end
@@ -27,4 +29,6 @@ Lethe.configure do |config|
   config.definition_path = ENV.fetch("LETHE_DEFINITION", "config/lethe.rb")
   config.export_path = ENV.fetch("LETHE_EXPORT", "tmp/lethe")
   config.guess_columns["User"] = %w[follower_id following_id]
+  # A script exits before a purge job would run.
+  config.purge = :now
 end

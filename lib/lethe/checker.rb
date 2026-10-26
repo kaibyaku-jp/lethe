@@ -17,34 +17,32 @@ module Lethe
 
       discovery = Discovery.new(@subject, models: models, connection: @connection, configuration: @configuration)
       @tables = discovery.tables
-      references = discovery.call
+      by_key, problems = declared_keys
 
-      results = []
-      by_key = Hash.new { |hash, key| hash[key] = [] }
-      @definition.policies.each do |policy|
-        key, error = resolve(policy)
-        if error
-          results << error
-        else
-          problems = validate(policy, key)
-          results.concat(problems)
-          by_key[key] << policy if problems.empty?
-        end
-      end
-      results.concat(contradictions(by_key))
-
-      references.each do |reference|
-        results << result_for(reference, by_key.delete(reference.key) || [])
-      end
+      results = problems + contradictions(by_key)
+      results.concat(discovery.call.map { |reference| result_for(reference, by_key.delete(reference.key) || []) })
       # Declared and valid, but not something Discovery found: trust the declaration.
-      by_key.each do |key, policies|
-        table, column = key.split(".", 2)
-        results << result_for(Reference.column(table, column, :declared), policies)
-      end
-
+      results.concat(by_key.map { |key, policies| result_for(Reference.column(*key.split(".", 2), :declared), policies) })
       results << subject_result
       results.concat(blocked_by_foreign_keys(results))
-      results
+    end
+
+    # The schema questions Rules asks.
+    def column_names(table)
+      @column_names ||= {}
+      @column_names[table] ||= @connection.columns(table).map(&:name)
+    end
+
+    def model_for_table(table)
+      models.find do |model|
+        !model.abstract_class? && model.table_name == table && model.base_class == model
+      rescue ActiveRecord::ActiveRecordError
+        false
+      end
+    end
+
+    def primary_key(table)
+      @connection.primary_key(table)
     end
 
     private
@@ -110,78 +108,19 @@ module Lethe
       ["#{table}.#{column}", nil]
     end
 
-    def column_names(table)
-      @column_names ||= {}
-      @column_names[table] ||= @connection.columns(table).map(&:name)
-    end
-
-    # Problems with a policy whose target exists.
-    def validate(policy, key)
+    # { "table.column" => [valid policies] }, and the problems with the rest.
+    def declared_keys
+      rules = Rules.new(@subject, self) { |policy, message_key, **values| invalid(policy, message_key, **values) }
       problems = []
-      table = key.start_with?("attachment:") ? nil : key.split(".", 2).first
+      by_key = Hash.new { |hash, key| hash[key] = [] }
+      @definition.policies.each do |policy|
+        key, error = resolve(policy)
+        next problems << error if error
 
-      if %i[keep ignore].include?(policy.action) && blank?(policy.reason)
-        problems << invalid(policy, "reason_required", action: policy.action)
+        found = rules.call(policy, key)
+        found.empty? ? by_key[key] << policy : problems.concat(found)
       end
-      problems << invalid(policy, "reason_not_string") unless policy.reason.nil? || policy.reason.is_a?(String)
-
-      if policy.action == :scrub
-        if !policy.set.is_a?(Hash) || policy.set.empty?
-          problems << invalid(policy, "set_required")
-        elsif table
-          problems.concat(unknown_columns(policy, table, policy.set.keys, "set"))
-        end
-      end
-
-      unless policy.where.nil?
-        if !policy.where.is_a?(Hash) || policy.where.empty?
-          problems << invalid(policy, "where_not_hash")
-        elsif table
-          problems.concat(unknown_columns(policy, table, policy.where.keys, "where"))
-        end
-      end
-
-      if policy.retention && !%i[keep scrub].include?(policy.action)
-        problems << invalid(policy, "retention_not_allowed", action: policy.action)
-      end
-      if policy.cascade && %i[keep scrub].include?(policy.action) && policy.retention.nil?
-        problems << invalid(policy, "cascade_without_retention", action: policy.action)
-      end
-      unless policy.retention.nil? || policy.retention.is_a?(ActiveSupport::Duration)
-        problems << invalid(policy, "retention_not_duration")
-      end
-
-      if table
-        enum_model = model_for_table(table)
-        {"where" => policy.where, "set" => (policy.action == :scrub) ? policy.set : nil}.each do |option, hash|
-          Enums.unknown(enum_model, hash).each do |column, value|
-            problems << invalid(policy, "unknown_enum_value", option: option, table: table, column: column, value: value.inspect)
-          end
-        end
-        problems << polymorphic_type_problem(policy, key, table)
-        if policy.cascade && !model_for_table(table)
-          problems << invalid(policy, "cascade_needs_model", table: table)
-        end
-        if policy.action == :scrub && policy.computed_set? && !@connection.primary_key(table)
-          problems << invalid(policy, "computed_set_needs_primary_key", table: table)
-        end
-      end
-      problems.compact
-    end
-
-    # A "table.column" for a polymorphic *_id must say which type it means,
-    # or erasing User 5 would also erase what belongs to Post 5.
-    def polymorphic_type_problem(policy, key, table)
-      return nil unless policy.target.kind == :column
-
-      column = key.split(".", 2).last
-      return nil unless column.end_with?("_id")
-
-      type_column = "#{column.delete_suffix("_id")}_type"
-      return nil unless column_names(table).include?(type_column)
-      return nil if policy.where.is_a?(Hash) && policy.where.keys.map(&:to_s).include?(type_column)
-
-      invalid(policy, "polymorphic_type_required", key: key, type_column: type_column, subject_type: @subject.polymorphic_name)
+      [by_key, problems]
     end
 
     # When the subject's row is deleted, rows that stay and point at it
@@ -194,20 +133,6 @@ module Lethe
 
         staying = result.policies.find { |policy| %i[keep scrub].include?(policy.action) }
         invalid(staying, "kept_rows_block_destroy", key: result.key) if staying
-      end
-    end
-
-    def model_for_table(table)
-      models.find do |model|
-        !model.abstract_class? && model.table_name == table && model.base_class == model
-      rescue ActiveRecord::ActiveRecordError
-        false
-      end
-    end
-
-    def unknown_columns(policy, table, names, option)
-      (names.map(&:to_s) - column_names(table)).map do |column|
-        invalid(policy, "unknown_column", option: option, table: table, column: column)
       end
     end
 
@@ -241,33 +166,33 @@ module Lethe
 
     def subject_result
       policy = @definition.subject_policy
-      unless policy
-        return Result.new(
-          status: :missing, subject: subject_name, key: "subject", reference: nil,
-          policies: [], message: nil, location: nil
-        )
-      end
-
-      columns = column_names(@subject.table_name)
-      message =
-        if policy.destroy && policy.soft_delete
-          ["subject_both", {}]
-        elsif !policy.destroy && policy.soft_delete.nil?
-          ["subject_neither", {}]
-        elsif policy.soft_delete && !columns.include?(policy.soft_delete.to_s)
-          ["unknown_column", {option: "soft_delete", table: @subject.table_name, column: policy.soft_delete.to_s}]
-        elsif !policy.scrub.is_a?(Hash)
-          ["subject_scrub_not_hash", {}]
-        elsif (unknown = policy.scrub.keys.map(&:to_s) - columns).any?
-          ["unknown_column", {option: "scrub", table: @subject.table_name, column: unknown.first}]
-        elsif (column, value = Enums.unknown(@subject, policy.scrub).first)
-          ["unknown_enum_value", {option: "scrub", table: @subject.table_name, column: column, value: value.inspect}]
-        end
-
+      message = policy ? subject_problem(policy) : nil
       Result.new(
-        status: message ? :invalid : :covered, subject: subject_name, key: "subject", reference: nil,
-        policies: [], message: message, location: policy.location
+        status: if policy.nil?
+                  :missing
+                else
+                  (message ? :invalid : :covered)
+                end, subject: subject_name, key: "subject",
+        reference: nil, policies: [], message: message, location: policy&.location
       )
+    end
+
+    # What is wrong with the subject declaration, as [message key, values], or nil.
+    def subject_problem(policy)
+      table = @subject.table_name
+      columns = column_names(table)
+      return ["subject_both", {}] if policy.destroy && policy.soft_delete
+      return ["subject_neither", {}] if !policy.destroy && policy.soft_delete.nil?
+      if policy.soft_delete && !columns.include?(policy.soft_delete.to_s)
+        return ["unknown_column", {option: "soft_delete", table: table, column: policy.soft_delete.to_s}]
+      end
+      return ["subject_scrub_not_hash", {}] unless policy.scrub.is_a?(Hash)
+
+      unknown = policy.scrub.keys.map(&:to_s) - columns
+      return ["unknown_column", {option: "scrub", table: table, column: unknown.first}] if unknown.any?
+
+      column, value = Enums.unknown(@subject, policy.scrub).first
+      ["unknown_enum_value", {option: "scrub", table: table, column: column, value: value.inspect}] if column
     end
 
     def invalid(policy, message_key, location: policy&.location, subject: subject_name, **values)
@@ -275,10 +200,6 @@ module Lethe
         status: :invalid, subject: subject, key: policy ? policy.target.to_s : subject, reference: nil,
         policies: policy ? [policy] : [], message: [message_key, values], location: location
       )
-    end
-
-    def blank?(value)
-      value.nil? || (value.is_a?(String) && value.strip.empty?)
     end
   end
 end

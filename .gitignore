@@ -1,0 +1,12 @@
+/.bundle/
+/vendor/bundle/
+/.gem/
+/.direnv/
+/pkg/
+/tmp/
+/coverage/
+*.gem
+.rspec_status
+/gemfiles/*.gemfile.lock
+/spec/fixtures/*/tmp/
+/spec/fixtures/*/log/

@@ -1,0 +1,9 @@
+default: &default
+  adapter: sqlite3
+  database: tmp/sns_app.sqlite3
+
+development:
+  <<: *default
+
+test:
+  <<: *default

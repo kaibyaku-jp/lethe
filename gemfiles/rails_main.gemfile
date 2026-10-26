@@ -1,0 +1,11 @@
+# frozen_string_literal: true
+
+# Rails' main branch, for an early warning on the weekly run.
+@rails_from_git = true
+eval_gemfile "../Gemfile"
+
+git "https://github.com/rails/rails.git", branch: "main" do
+  gem "activerecord"
+  gem "railties"
+  gem "activestorage"
+end

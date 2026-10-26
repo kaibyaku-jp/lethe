@@ -1,0 +1,6 @@
+# frozen_string_literal: true
+
+# The main Gemfile without its lockfile, so Bundler resolves the newest
+# gems for the Ruby in use. CI uses it on ruby-head, where gems locked
+# for released Rubies may not install.
+eval_gemfile "../Gemfile"

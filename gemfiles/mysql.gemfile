@@ -1,0 +1,6 @@
+# frozen_string_literal: true
+
+# Runs the specs on MySQL; set DATABASE_URL=mysql2://...
+eval_gemfile "../Gemfile"
+
+gem "mysql2"

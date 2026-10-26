@@ -1,0 +1,8 @@
+# frozen_string_literal: true
+
+# The Rails 7.2 series, to keep it supported.
+@rails_requirement = "~> 7.2.0"
+eval_gemfile "../Gemfile"
+
+gem "activerecord", @rails_requirement
+gem "railties", @rails_requirement

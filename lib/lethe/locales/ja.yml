@@ -1,0 +1,67 @@
+ja:
+  lethe:
+    errors:
+      no_definitions_file: "lethe: %{path} がありません。方針をそこに書くか、Lethe.configuration.definition_path を設定してください。"
+      load_failed: "lethe: %{path} を読み込めませんでした: %{error}"
+    vias:
+      foreign_key: 外部キー
+      association: 関連
+      join_table: 中間テーブル
+      polymorphic: ポリモーフィック関連
+      polymorphic_guess: ポリモーフィックの belongs_to
+      attachment: 添付
+      column_name: 列名
+      declared: 宣言
+    check:
+      summary: "%{subject}: 参照 %{count} 件（%{vias}）"
+      covered: "%{count} 件に方針があります"
+      missing: "方針がありません（%{vias}で見つけました）"
+      guess: "%{vias}から推測しました。%{subject} を指すなら方針を、指さないなら理由をつけて ignore を書いてください"
+      subject_missing: "subject の宣言がありません。%{subject} の行そのものをどうするかを書いてください"
+      totals: "問題 %{problems} 件、要確認 %{guesses} 件。"
+      clean: "問題はありません。"
+    messages:
+      subject_not_a_model: "%{subject} はテーブルのある Active Record のモデルではありません"
+      no_association: "%{subject} に :%{name} という関連はありません"
+      through_association: ":%{name} は別の関連を通っています。通っている先のテーブルを宣言してください"
+      association_class_missing: ":%{name} のクラスを読み込めません"
+      belongs_to_association: ":%{name} は belongs_to です。%{subject} を指すのではなく、%{subject} から外を指しています"
+      no_attachment: "%{subject} に :%{name} という添付はありません"
+      no_table: "%{table} というテーブルはありません"
+      no_column: "%{table} に %{column} という列はありません"
+      reason_required: "%{action} には reason: が必要です"
+      reason_not_string: "reason: は文字列にしてください"
+      set_required: "scrub には、書き換える列を set: で書いてください"
+      where_not_hash: "where: は列と値の Hash にしてください"
+      unknown_column: "%{option}: %{table} に %{column} という列はありません"
+      retention_not_duration: "for: は 2.years のような期間にしてください"
+      contradiction: "%{key} には %{other} で別の方針があります。どちらかを where: で絞ってください"
+      subject_both: "subject に destroy: と soft_delete: の両方は書けません"
+      subject_neither: "subject には destroy: true か soft_delete: :列名 が必要です"
+      subject_scrub_not_hash: "subject の scrub: は列と値の Hash にしてください"
+    export:
+      title: "%{subject} が退会するとどうなるか"
+      generated: "lethe が %{path} から書き出しました。手で直さず、bin/rails lethe:export を実行してください。"
+      data: データ
+      action: 退会すると
+      retention: 保存期間
+      reason: 理由
+      subject_row: "%{subject} 本体"
+      attachment: "%{name}（添付）"
+      column_suffix: "%{label}（%{column}）"
+      destroy: 消す
+      destroy_attachment: 消す
+      scrub: "残す。%{columns} は書き換える"
+      keep: 残す
+      soft_delete: "削除済みとして残す（%{column}）"
+      soft_delete_scrub: "削除済みとして残す（%{column}）。%{columns} は書き換える"
+      where: "%{conditions} のとき: %{action}"
+      list_separator: "、"
+      parts:
+        years: "%{count} 年"
+        months: "%{count} か月"
+        weeks: "%{count} 週間"
+        days: "%{count} 日"
+        hours: "%{count} 時間"
+        minutes: "%{count} 分"
+        seconds: "%{count} 秒"

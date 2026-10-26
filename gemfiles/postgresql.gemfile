@@ -1,0 +1,6 @@
+# frozen_string_literal: true
+
+# Runs the specs on PostgreSQL; set DATABASE_URL=postgres://...
+eval_gemfile "../Gemfile"
+
+gem "pg"

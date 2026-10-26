@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200" role="img" aria-labelledby="title">
+  <title id="title">lethe</title>
+  <defs><mask id="wash" maskUnits="userSpaceOnUse" x="0" y="0" width="200" height="200"><rect width="200" height="200" fill="#fff"/><g fill="none"><path d="M18 128 C 40 114, 60 142, 82 128 S 124 114, 146 128 S 172 142, 184 126" stroke="#000" stroke-width="30" stroke-linecap="round"/><path d="M30 160 C 50 147, 70 173, 92 160 S 132 147, 154 160" stroke="#000" stroke-width="28" stroke-linecap="round"/></g></mask></defs>
+    <path d="M50 160 C 66 118, 84 76, 100 34 C 116 76, 134 118, 150 160" fill="none" stroke="#F2F0EA" stroke-width="20" stroke-linecap="round" stroke-linejoin="round" mask="url(#wash)"/>
+    <g fill="none">
+    <path d="M18 128 C 40 114, 60 142, 82 128 S 124 114, 146 128 S 172 142, 184 126" stroke="#5BA4C4" stroke-width="13" stroke-linecap="round"/>
+    <path d="M30 160 C 50 147, 70 173, 92 160 S 132 147, 154 160" stroke="#5BA4C4" stroke-width="12" stroke-linecap="round" opacity="0.55"/>
+    </g>
+</svg>

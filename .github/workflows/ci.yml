@@ -1,0 +1,137 @@
+name: CI
+
+# Each job is billed in whole minutes, so checks share a job where they can.
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "docs/**"
+      - ".github/workflows/nix.yml"
+  pull_request:
+    paths-ignore:
+      - "docs/**"
+      - ".github/workflows/nix.yml"
+  # Weekly, to notice breakage from new releases of Ruby, Rails or dependencies.
+  schedule:
+    - cron: "23 21 * * 1"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: test (${{ matrix.ruby }}, ${{ matrix.gemfile }})
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        ruby: ["3.4", "4.0"]
+        gemfile: [Gemfile]
+        include:
+          # The older Rails series that lethe supports.
+          - ruby: "3.4"
+            gemfile: gemfiles/rails_7_2.gemfile
+          - ruby: "3.4"
+            gemfile: gemfiles/rails_8_0.gemfile
+    env:
+      BUNDLE_GEMFILE: ${{ matrix.gemfile }}
+      # Lint, dogfooding and packaging need to run once, not per Ruby.
+      MAIN: ${{ matrix.ruby == '3.4' && matrix.gemfile == 'Gemfile' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ruby/setup-ruby@b1da4809b005e0178fe08a1d57317bffc00b7b4c # v1.332.0
+        with:
+          ruby-version: ${{ matrix.ruby }}
+          bundler-cache: true
+      - run: bundle exec rake spec
+      - if: env.MAIN == 'true'
+        run: bundle exec rake standard
+      - if: env.MAIN == 'true'
+        run: bundle exec omoteura check --format github
+      - if: env.MAIN == 'true'
+        run: bundle exec rake package
+
+  # Foreign keys and column types are read differently by each database.
+  database:
+    name: test (${{ matrix.database }})
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - database: mysql
+            url: mysql2://root:lethe@127.0.0.1:3306/lethe_test
+          - database: postgresql
+            url: postgres://postgres:lethe@127.0.0.1:5432/lethe_test
+    services:
+      mysql:
+        image: ${{ matrix.database == 'mysql' && 'mysql:8.4' || '' }}
+        env:
+          MYSQL_ROOT_PASSWORD: lethe
+          MYSQL_DATABASE: lethe_test
+        ports: ["3306:3306"]
+        options: >-
+          --health-cmd "mysqladmin ping -h 127.0.0.1 -plethe"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+      postgres:
+        image: ${{ matrix.database == 'postgresql' && 'postgres:17' || '' }}
+        env:
+          POSTGRES_PASSWORD: lethe
+          POSTGRES_DB: lethe_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      BUNDLE_GEMFILE: gemfiles/${{ matrix.database }}.gemfile
+      DATABASE_URL: ${{ matrix.url }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ruby/setup-ruby@b1da4809b005e0178fe08a1d57317bffc00b7b4c # v1.332.0
+        with:
+          ruby-version: "3.4"
+          bundler-cache: true
+      # The integration specs keep their own SQLite database; these run the rest.
+      - run: bundle exec rspec spec/lethe spec/lethe_spec.rb
+
+  # An early warning only, on the weekly run; a failure here does not fail the build.
+  edge:
+    name: test (${{ matrix.ruby }}, ${{ matrix.gemfile }}) [experimental]
+    if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    continue-on-error: true
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - ruby: head
+            gemfile: gemfiles/latest.gemfile
+          - ruby: "3.4"
+            gemfile: gemfiles/rails_main.gemfile
+    env:
+      BUNDLE_GEMFILE: ${{ matrix.gemfile }}
+      # Precompiled native gems often do not declare support for ruby-head yet.
+      BUNDLE_FORCE_RUBY_PLATFORM: ${{ matrix.ruby == 'head' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ruby/setup-ruby@b1da4809b005e0178fe08a1d57317bffc00b7b4c # v1.332.0
+        with:
+          ruby-version: ${{ matrix.ruby }}
+          bundler-cache: true
+      - run: bundle exec rake spec

@@ -100,17 +100,6 @@ GEM
       racc (~> 1.4)
     nokogiri (1.19.4-x86_64-linux-musl)
       racc (~> 1.4)
-    omoteura (0.2.0)
-      omoteura-core (= 0.2.0)
-      omoteura-minitest (= 0.2.0)
-      omoteura-rspec (= 0.2.0)
-    omoteura-core (0.2.0)
-    omoteura-minitest (0.2.0)
-      minitest (>= 5.21, < 7)
-      omoteura-core (= 0.2.0)
-    omoteura-rspec (0.2.0)
-      omoteura-core (= 0.2.0)
-      rspec-core (>= 3.12, < 4)
     parallel (2.3.0)
     parser (3.3.13.0)
       ast (~> 2.4.1)
@@ -237,7 +226,6 @@ PLATFORMS
 DEPENDENCIES
   activestorage (>= 7.2)
   lethe!
-  omoteura
   rake
   rspec (~> 3.12)
   simplecov

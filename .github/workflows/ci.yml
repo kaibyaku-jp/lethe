@@ -41,7 +41,7 @@ jobs:
             gemfile: gemfiles/rails_8_0.gemfile
     env:
       BUNDLE_GEMFILE: ${{ matrix.gemfile }}
-      # Lint, dogfooding and packaging need to run once, not per Ruby.
+      # Lint and packaging need to run once, not per Ruby.
       MAIN: ${{ matrix.ruby == '3.4' && matrix.gemfile == 'Gemfile' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -54,8 +54,6 @@ jobs:
       - run: bundle exec rake spec
       - if: env.MAIN == 'true'
         run: bundle exec rake standard
-      - if: env.MAIN == 'true'
-        run: bundle exec omoteura check --format github
       - if: env.MAIN == 'true'
         run: bundle exec rake package
 

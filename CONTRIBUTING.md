@@ -46,7 +46,6 @@ older Rails in the same way.
 | `lib/lethe/runner.rb`, `tasks/lethe.rake` | the rake tasks |
 | `lib/generators/lethe/install` | `bin/rails generate lethe:install` |
 | `spec/fixtures/sns_app` | a small Rails app with real attachments, for the integration specs |
-| `ura/` | diagrams behind the specs, linked with [omoteura](https://github.com/kaibyaku-jp/omoteura) |
 
 ## Ground rules
 

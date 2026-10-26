@@ -7,10 +7,8 @@ on:
     paths-ignore:
       - "docs/**"
       - ".github/workflows/nix.yml"
+  # Every pull request, so that the required checks always report.
   pull_request:
-    paths-ignore:
-      - "docs/**"
-      - ".github/workflows/nix.yml"
   # Weekly, to notice breakage from new releases of Ruby, Rails or dependencies.
   schedule:
     - cron: "23 21 * * 1"

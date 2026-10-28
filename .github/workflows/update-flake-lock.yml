@@ -13,12 +13,23 @@ jobs:
     permissions:
       contents: write # push the branch with the updated flake.lock
       pull-requests: write # open the pull request
+      actions: write # start the checks on the pull request
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa # v23
-      - uses: DeterminateSystems/update-flake-lock@da03c0f078bc4b2c37ee4f7e072d34bf8f188bb3 # v29
+      - id: update
+        uses: DeterminateSystems/update-flake-lock@da03c0f078bc4b2c37ee4f7e072d34bf8f188bb3 # v29
         with:
           pr-title: "Update flake.lock"
           pr-labels: dependencies
+      # A pull request opened with GITHUB_TOKEN starts no workflows, so start
+      # the required checks on its branch by hand; they report on its commit.
+      - if: steps.update.outputs.pull-request-operation == 'created' || steps.update.outputs.pull-request-operation == 'updated'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh workflow run ci.yml --ref update_flake_lock_action
+          gh workflow run nix.yml --ref update_flake_lock_action

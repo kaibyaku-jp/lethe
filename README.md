@@ -15,7 +15,7 @@ reason. lethe finds those tables in your Rails app, checks that each one has
 a declared policy, fails CI when a new table has none, and carries the
 policies out when the account goes.
 
-> **Status:** early, before its first release. Until 1.0, minor versions may
+> **Status:** beta. Until 1.0, minor versions may
 > change how things work; [CHANGELOG.md](CHANGELOG.md) says what changed.
 
 Lethe is the river of forgetting in Greek myth: in Plato's *Republic*, souls
